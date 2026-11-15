@@ -45,11 +45,19 @@ const QUICK_PROMPTS = [
     label: 'Official plan kahan se verify karein?',
     text: 'Dukaan ke liye official Soundbox plan aur pricing kahan se verify hoti hai?',
   },
+  {
+    id: 'support-soundbox-trouble',
+    language: 'Support',
+    label: 'My Soundbox stopped working',
+    text: 'My Soundbox stopped working and is not announcing payments.',
+  },
 ]
 
 export default function MessageComposer({
   inputText,
   setInputText,
+  chatMode = 'sales',
+  setChatMode,
   onSendMessage,
   isSending = false,
   error = null,
@@ -164,6 +172,36 @@ export default function MessageComposer({
         </div>
       )}
 
+      {/* Mode Toggle: Sales vs Customer Care */}
+      {setChatMode && (
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setChatMode('sales')}
+            disabled={disabled || isSending || cooldownSeconds > 0}
+            className={`shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-colors cursor-pointer border disabled:opacity-50 whitespace-nowrap ${
+              chatMode === 'sales'
+                ? 'bg-[#002e6e] text-white border-[#002e6e]'
+                : 'bg-slate-100 text-slate-700 border-slate-200/80 hover:bg-slate-200'
+            }`}
+          >
+            Sales
+          </button>
+          <button
+            type="button"
+            onClick={() => setChatMode('support')}
+            disabled={disabled || isSending || cooldownSeconds > 0}
+            className={`shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-colors cursor-pointer border disabled:opacity-50 whitespace-nowrap ${
+              chatMode === 'support'
+                ? 'bg-[#002e6e] text-white border-[#002e6e]'
+                : 'bg-slate-100 text-slate-700 border-slate-200/80 hover:bg-slate-200'
+            }`}
+          >
+            Ask a Doubt / Customer Care
+          </button>
+        </div>
+      )}
+
       {/* WhatsApp-Style Compact Input Bar (~55-65px) */}
       <div className="relative flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-[#002e6e]/20 focus-within:border-[#002e6e] transition-all">
         <textarea
@@ -176,6 +214,8 @@ export default function MessageComposer({
           placeholder={
             disabled
               ? 'Select a conversation to compose a message...'
+              : chatMode === 'support'
+              ? 'Ask your doubt, e.g. My Soundbox is not announcing payments...'
               : 'Type a message in English, Hindi, or Hinglish... (Enter to send)'
           }
           className="flex-1 bg-transparent border-0 resize-none text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-0 p-0.5 min-h-[36px] max-h-[96px] leading-snug"

@@ -44,6 +44,7 @@ export default function Conversations({ onRecordMutated }) {
   const [isSending, setIsSending] = useState(false)
 
   // Composer & error states
+  const [chatMode, setChatMode] = useState('sales') // 'sales' | 'support', default 'sales'
   const [inputText, setInputText] = useState('')
   const [chatError, setChatError] = useState(null)
   const [cooldownSeconds, setCooldownSeconds] = useState(0)
@@ -249,6 +250,7 @@ export default function Conversations({ onRecordMutated }) {
         shopkeeperId: effectiveShopkeeperId,
         message: messageToSend,
         channel: 'Web Chat',
+        mode: chatMode,
         ...(selectedConversationId ? { conversationId: selectedConversationId } : {}),
       }
 
@@ -421,6 +423,8 @@ export default function Conversations({ onRecordMutated }) {
             <MessageComposer
               inputText={inputText}
               setInputText={setInputText}
+              chatMode={chatMode}
+              setChatMode={setChatMode}
               onSendMessage={handleSendMessage}
               isSending={isSending}
               error={chatError}

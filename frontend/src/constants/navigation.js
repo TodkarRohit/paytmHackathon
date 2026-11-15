@@ -7,6 +7,7 @@ import {
   Target,
   UserCheck,
   MessageSquare,
+  Headset,
   BarChart3,
   Settings,
 } from 'lucide-react'
@@ -20,6 +21,7 @@ export const NAVIGATION_ITEMS = [
   { id: 'leads', label: 'Leads', icon: Target },
   { id: 'agents', label: 'Sales Agents', icon: UserCheck },
   { id: 'conversations', label: 'Conversations', icon: MessageSquare },
+  { id: 'customer-care', label: 'Customer Requests', icon: Headset },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]

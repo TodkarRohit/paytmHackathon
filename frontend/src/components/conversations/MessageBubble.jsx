@@ -32,6 +32,7 @@ function renderIntentBadge(intent) {
     Language_Support: { label: 'Multilingual', color: 'bg-teal-50 text-teal-700 border-teal-200' },
     Greeting: { label: 'Greeting', color: 'bg-slate-50 text-slate-600 border-slate-200' },
     General_Inquiry: { label: 'General Inquiry', color: 'bg-slate-50 text-slate-700 border-slate-200' },
+    Support_Request: { label: 'Customer Care', color: 'bg-rose-50 text-rose-700 border-rose-200' },
   }
 
   const normalized = intent.replace(/\s+/g, '_')

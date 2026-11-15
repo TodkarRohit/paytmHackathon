@@ -7,6 +7,7 @@ import Campaigns from './pages/Campaigns'
 import Leads from './pages/Leads'
 import Agents from './pages/Agents'
 import Conversations from './pages/Conversations'
+import CustomerCare from './pages/CustomerCare'
 import EnterpriseCRM from './pages/EnterpriseCRM'
 import AITrainingStudio from './pages/AITrainingStudio'
 import PlaceholderView from './pages/PlaceholderView'
@@ -99,6 +100,7 @@ export default function App() {
     leads: 'Lead Management',
     agents: 'Sales Agents',
     conversations: 'AI Conversations',
+    'customer-care': 'Customer Requests',
     analytics: 'Performance Analytics',
     settings: 'Platform Settings',
   }
@@ -117,6 +119,8 @@ export default function App() {
       'Manage on-ground Paytm sales representatives and distribute qualified leads across territories.',
     conversations:
       'Inspect transcripts of AI dialogues with shopkeepers, sentiment scores, and customer questions.',
+    'customer-care':
+      'Review shopkeeper incoming inquiries, product doubts, service requests, and escalated customer support tickets.',
     analytics:
       'Aggregated conversion metrics, response rates, and objection analysis across product offerings.',
     settings:
@@ -161,6 +165,9 @@ export default function App() {
 
       case 'conversations':
         return <Conversations onRecordMutated={fetchDashboardData} />
+
+      case 'customer-care':
+        return <CustomerCare onRecordMutated={fetchDashboardData} />
 
       default:
         // Analytics, Settings remain as placeholders

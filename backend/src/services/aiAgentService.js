@@ -290,10 +290,216 @@ export async function generateSalesResponse({
   }
 }
 
+/**
+ * Auto-detect whether a message is a customer care / support doubt,
+ * or if chatMode was explicitly set to 'support'.
+ */
+export function isSupportDoubt(message = '', mode = 'sales') {
+  if (mode === 'support') return true
+  if (!message || typeof message !== 'string') return false
+  const lower = message.toLowerCase()
+  const supportKeywords = [
+    'not working',
+    'stopped',
+    'kharab',
+    'nahi chal raha',
+    'nahi chal rahi',
+    'sound nahi aa raha',
+    'sound nahi aa rahi',
+    'awaz nahi aa rahi',
+    'awaaz nahi',
+    'not announcing',
+    'payment not received',
+    'issue',
+    'problem',
+    'doubt',
+    'help',
+  ]
+  return supportKeywords.some((kw) => lower.includes(kw))
+}
+
+/**
+ * Check if the support conversation requires escalation to a human agent.
+ * Checks whether the merchant says the problem is still there,
+ * or the AI indicates it cannot resolve the issue.
+ */
+export function checkSupportEscalation(message = '', reply = '') {
+  const lowerMsg = (message || '').toLowerCase()
+  const lowerReply = (reply || '').toLowerCase()
+
+  const persistencePatterns = [
+    'still not working',
+    'still not',
+    'problem is still',
+    'problem still',
+    'issue still',
+    'still issue',
+    'still problem',
+    'abhi bhi nahi',
+    'fir bhi nahi',
+    'phir bhi nahi',
+    'nahi hua',
+    'nahi ho raha',
+    'not resolved',
+    'not solved',
+    'did not work',
+    'didn\'t work',
+    'human agent',
+    'talk to human',
+    'call agent',
+    'talk to agent',
+    'executive',
+    'complaint',
+    'escalate',
+  ]
+
+  const userIndicatesPersistence = persistencePatterns.some((pattern) => lowerMsg.includes(pattern))
+
+  const aiIndicatesEscalation =
+    lowerReply.includes('escalat') ||
+    lowerReply.includes('human agent') ||
+    lowerReply.includes('support executive') ||
+    lowerReply.includes('field agent') ||
+    lowerReply.includes('cannot resolve') ||
+    lowerReply.includes('unable to resolve') ||
+    lowerReply.includes('don\'t know') ||
+    lowerReply.includes('pata nahi')
+
+  return userIndicatesPersistence || aiIndicatesEscalation
+}
+
+/**
+ * Builds system instruction for customer support / doubt resolution,
+ * grounded strictly in safe troubleshooting and verified soundbox knowledge.
+ */
+export function buildSupportSystemInstruction(merchant = null, systemNotices = []) {
+  const devices =
+    Array.isArray(merchant?.currentDevices) && merchant.currentDevices.length > 0
+      ? merchant.currentDevices.join(', ')
+      : 'Paytm Soundbox'
+
+  const merchantContext = merchant
+    ? `
+MERCHANT CONTEXT:
+- Merchant Name: ${merchant.name || 'Merchant'}
+- Shop Name: ${merchant.shopName || 'Retail Store'}
+- Category: ${merchant.category || 'Retail'}
+- City: ${merchant.address?.city || 'India'}
+- Preferred Language: ${merchant.preferredLanguage || 'Hindi / Hinglish'}
+- Registered Devices: ${devices}
+`
+    : `MERCHANT CONTEXT:\n- Registered Devices: ${devices}\n`
+
+  const systemContext =
+    Array.isArray(systemNotices) && systemNotices.length > 0
+      ? `
+RECENT SYSTEM / PLATFORM NOTICES:
+${systemNotices.map((n) => `- ${n}`).join('\n')}
+`
+      : ''
+
+  const unverified = VERIFIED_SOUNDBOX_KNOWLEDGE.unverifiedInformationPolicy
+
+  return `You are the official Paytm Customer Care / Technical Support Assistant for Indian retail shopkeepers.
+Your mission is to help merchants troubleshoot issues and doubts with their registered payment devices politely, safely, and concisely.
+
+${merchantContext}${systemContext}
+DEVICE RECOGNITION:
+- Registered Devices: ${devices}
+- Identify the product from their registered devices (Paytm Soundbox, Paytm QR, Paytm POS, Paytm Card Machine EDC). If not specified by the merchant and multiple devices exist, politely clarify which device they need help with.
+
+LANGUAGE & TONE GUIDELINES:
+1. Always reply in the shopkeeper's language:
+   - If Hindi (Devanagari), reply in polite, supportive Hindi.
+   - If Hinglish, reply naturally in Hinglish.
+   - If English, reply in friendly, professional English.
+2. Keep answers concise, practical, and empathetic for busy merchants (2 to 4 sentences).
+3. Greet politely when appropriate (e.g. "Namaste [Name] ji").
+
+SAFE TROUBLESHOOTING GUIDELINES (GROUNDED IN VERIFIED KNOWLEDGE):
+- Power & Charging: Check if device is turned on, power adapter is securely connected, or try charging for a few minutes and restarting.
+- Volume: Check volume buttons on the device (press '+' to increase volume), ensure the speaker is not muted.
+- Network & Connectivity: Check network / SIM indicator light. If red or disconnected, restart the device in an area with good network coverage.
+- Payment Verification: For payment doubts or if customer claims payment is made but Soundbox didn't announce, always instruct the merchant to verify the transaction in the Paytm for Business app transaction history.
+- Ask 1-2 relevant follow-up questions if needed to diagnose the issue (e.g., "Kya device par koi light blink kar rahi hai?").
+
+STRICT COMPLIANCE & UNVERIFIED INFORMATION POLICIES (NEVER INVENT):
+- Pricing: ${unverified.pricing}
+- Hardware Specs: ${unverified.hardwareSpecs}
+- NEVER invent phone numbers, toll-free numbers, or unofficial contact details.
+- NEVER make promises about hardware replacement guarantees or exact resolution times (e.g., "will be fixed in 10 minutes").
+
+ESCALATION PROTOCOL:
+- If standard safe troubleshooting cannot resolve the issue, or if the merchant indicates the problem is still there, or if you do not know the answer, explain clearly and politely that a human agent / Paytm support executive will help them.
+`
+}
+
+/**
+ * Generate an AI support / doubt resolution response using Google Gemini.
+ * Reuses getGenAIClient, formatConversationContents, and the same Gemini model.
+ */
+export async function generateSupportResponse({
+  merchant = null,
+  history = [],
+  message,
+  modelName = 'gemini-3.8-flash',
+}) {
+  const { contents, systemNotices } = formatConversationContents({ history, message })
+  const ai = getGenAIClient()
+  const systemInstruction = buildSupportSystemInstruction(merchant, systemNotices)
+
+  try {
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents,
+      config: {
+        systemInstruction,
+        temperature: 0.5,
+      },
+    })
+
+    let reply =
+      response.text?.trim() ||
+      'Namaste. Paytm Customer Care me aapka swagat hai. Kripya apna device on karein aur volume check karein. Kya device par koi light blink kar rahi hai?'
+
+    const intent = 'Support_Request'
+    const sentiment = detectSentiment(message)
+    const isEscalated = checkSupportEscalation(message, reply)
+
+    if (isEscalated && !/human agent|support agent|executive|escalat|प्रतिनिधि|कॉल/i.test(reply)) {
+      reply += '\n\nMaine aapki samasya hamare human support agent ko escalate kar di hai. Hamare executive jald hi aapse sampark karenge.'
+    }
+
+    return {
+      reply,
+      intent,
+      sentiment,
+      isEscalated,
+    }
+  } catch (apiError) {
+    let errorText = apiError.message || 'Gemini API processing failed'
+    try {
+      const parsed = JSON.parse(errorText)
+      if (parsed.error?.message) {
+        errorText = parsed.error.message
+      }
+    } catch {}
+
+    const err = new Error(`AI Support Agent error: ${errorText}`)
+    err.original = apiError
+    err.status = apiError.status || 500
+    throw err
+  }
+}
+
 export default {
   getGenAIClient,
   setGenAIClient,
   buildSalesSystemInstruction,
+  buildSupportSystemInstruction,
   formatConversationContents,
   generateSalesResponse,
+  generateSupportResponse,
+  isSupportDoubt,
+  checkSupportEscalation,
 }

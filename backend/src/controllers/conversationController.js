@@ -1,6 +1,6 @@
 import mongoose from 'mongoose'
 import { Conversation, Shopkeeper, Assignment, Lead } from '../models/index.js'
-import { generateSalesResponse } from '../services/aiAgentService.js'
+import { generateSalesResponse, generateSupportResponse, isSupportDoubt } from '../services/aiAgentService.js'
 import { conversationMutex } from '../utils/conversationMutex.js'
 
 /**
@@ -56,7 +56,7 @@ async function getAssignedShopkeeperIdsForAgent(agentId) {
  */
 export const chatWithAgent = async (req, res, next) => {
   try {
-    const { message, conversationId, channel = 'Web Chat' } = req.body
+    const { message, conversationId, channel = 'Web Chat', mode = 'sales' } = req.body
     const bodyShopkeeperId = req.body.shopkeeperId
 
     let effectiveShopkeeperId = null
@@ -184,12 +184,32 @@ export const chatWithAgent = async (req, res, next) => {
         }
       }
 
-      // Generate AI sales response using Gemini service with conversation context
-      const { reply, intent, sentiment } = await generateSalesResponse({
-        merchant: shopkeeper,
-        history: conversation.messages,
-        message: message.trim(),
-      })
+      // Check whether this turn is support/customer care or sales
+      const isSupport = mode === 'support' || isSupportDoubt(message.trim())
+
+      let reply, intent, sentiment
+      let isEscalated = false
+
+      if (isSupport) {
+        const supportResult = await generateSupportResponse({
+          merchant: shopkeeper,
+          history: conversation.messages,
+          message: message.trim(),
+        })
+        reply = supportResult.reply
+        intent = 'Support_Request'
+        sentiment = supportResult.sentiment || 'Neutral'
+        isEscalated = supportResult.isEscalated
+      } else {
+        const salesResult = await generateSalesResponse({
+          merchant: shopkeeper,
+          history: conversation.messages,
+          message: message.trim(),
+        })
+        reply = salesResult.reply
+        intent = salesResult.intent
+        sentiment = salesResult.sentiment
+      }
 
       const userTimestamp = new Date()
       const aiTimestamp = new Date(userTimestamp.getTime() + 100)
@@ -207,13 +227,21 @@ export const chatWithAgent = async (req, res, next) => {
         text: reply.trim(),
         timestamp: aiTimestamp,
         intentDetected: intent,
-        sentiment: 'Positive',
+        sentiment: isSupport ? sentiment : 'Positive',
       })
 
-      if (intent === 'Purchase_Intent' || intent === 'Pricing_Inquiry') {
-        conversation.detectedInterest = true
+      if (isSupport) {
+        if (isEscalated) {
+          conversation.escalatedToHuman = true
+          conversation.status = 'Escalated to Agent'
+        }
+        conversation.aiSummary = `Latest topic: ${intent} (${sentiment} sentiment)`
+      } else {
+        if (intent === 'Purchase_Intent' || intent === 'Pricing_Inquiry') {
+          conversation.detectedInterest = true
+        }
+        conversation.aiSummary = `Latest topic: ${intent} (${sentiment} sentiment)`
       }
-      conversation.aiSummary = `Latest topic: ${intent} (${sentiment} sentiment)`
 
       await conversation.save()
 
@@ -249,7 +277,7 @@ export const getConversations = async (req, res, next) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10))
     const skip = (page - 1) * limit
 
-    const { status } = req.query
+    const { status, support, search } = req.query
     const query = {}
     const userRole = req.user?.role
     const agentId = req.user?.agentId || req.user?.userId
@@ -284,11 +312,56 @@ export const getConversations = async (req, res, next) => {
       })
     }
 
-    if (status) query.status = status
+    if (status && status !== 'All') {
+      if (status === 'Open') {
+        query.status = 'Active'
+      } else {
+        query.status = status
+      }
+    }
+
+    // Support doubt filter: conversations with support doubt or escalation
+    if (support === 'true' || support === true) {
+      query.$or = [
+        { 'messages.intentDetected': 'Support_Request' },
+        { escalatedToHuman: true },
+        { status: 'Escalated to Agent' },
+      ]
+    }
+
+    // Search filter: merchant name, shop name, or phone number
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), 'i')
+      const matchedShopkeepers = await Shopkeeper.find({
+        $or: [
+          { name: searchRegex },
+          { shopName: searchRegex },
+          { phoneNumber: searchRegex },
+        ],
+      })
+        .select('_id')
+        .lean()
+
+      const matchedIds = matchedShopkeepers.map((s) => s._id)
+
+      if (query.shopkeeperId) {
+        if (query.shopkeeperId.$in) {
+          const allowedSet = new Set(query.shopkeeperId.$in.map((id) => id.toString()))
+          query.shopkeeperId = { $in: matchedIds.filter((id) => allowedSet.has(id.toString())) }
+        } else {
+          const allowedStr = query.shopkeeperId.toString()
+          if (!matchedIds.some((id) => id.toString() === allowedStr)) {
+            query.shopkeeperId = new mongoose.Types.ObjectId()
+          }
+        }
+      } else {
+        query.shopkeeperId = { $in: matchedIds }
+      }
+    }
 
     const [conversations, total] = await Promise.all([
       Conversation.find(query)
-        .populate('shopkeeperId', 'name shopName phoneNumber category address.city preferredLanguage')
+        .populate('shopkeeperId', 'name shopName phoneNumber category address.city preferredLanguage currentDevices')
         .populate('leadId', 'leadStatus stage priority')
         .sort({ updatedAt: -1 })
         .skip(skip)
