@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import mongoose from 'mongoose'
 import apiRoutes from './routes/index.js'
+import whatsappRoutes from './routes/whatsappRoutes.js'
 import { errorHandler } from './middleware/errorHandler.js'
 
 /**
@@ -73,9 +74,14 @@ export const createApp = () => {
         campaigns: '/api/campaigns',
         agents: '/api/agents',
         conversations: '/api/conversations',
+        whatsappWebhook: '/webhooks/whatsapp',
       },
     })
   })
+
+  // WhatsApp webhook — mounted BEFORE /api, no JWT auth.
+  // Meta calls GET for verification and POST for incoming messages.
+  app.use('/webhooks/whatsapp', whatsappRoutes)
 
   // Mount API Router
   app.use('/api', apiRoutes)
