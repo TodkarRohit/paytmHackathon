@@ -3,22 +3,18 @@ import {
   Menu,
   Search,
   Bell,
-  ChevronDown,
-  User,
-  ShieldCheck,
   CheckCircle2,
 } from 'lucide-react'
 
 export default function Topbar({
   pageTitle = 'Dashboard',
   onToggleSidebar,
+  onOpenTwilioModal,
 }) {
   const [showNotifications, setShowNotifications] = useState(false)
-  const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
   const notificationRef = useRef(null)
-  const profileRef = useRef(null)
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -28,12 +24,6 @@ export default function Topbar({
         !notificationRef.current.contains(event.target)
       ) {
         setShowNotifications(false)
-      }
-      if (
-        profileRef.current &&
-        !profileRef.current.contains(event.target)
-      ) {
-        setShowProfileMenu(false)
       }
     }
 
@@ -78,6 +68,19 @@ export default function Topbar({
 
       {/* Right: Notifications & Profile */}
       <div className="flex items-center gap-2 sm:gap-3">
+        {/* Twilio WhatsApp Quick Hub Button */}
+        {onOpenTwilioModal && (
+          <button
+            type="button"
+            onClick={onOpenTwilioModal}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-emerald-300 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
+            title="Twilio WhatsApp Integration Hub & Simulator"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="hidden sm:inline">WhatsApp:</span> Twilio
+          </button>
+        )}
+
         {/* Notifications */}
         <div className="relative" ref={notificationRef}>
           <button
@@ -103,52 +106,6 @@ export default function Topbar({
                 <p className="text-[11px] text-slate-600 mt-0.5">
                   Real-time lead assignments & AI alerts will appear here.
                 </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Vertical Divider */}
-        <div className="h-6 w-px bg-slate-200 mx-0.5" />
-
-        {/* Admin Profile */}
-        <div className="relative" ref={profileRef}>
-          <button
-            type="button"
-            onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="flex items-center gap-2.5 p-1 sm:px-2 sm:py-1.5 rounded-lg hover:bg-slate-100 transition-colors text-left cursor-pointer"
-            aria-label="Admin Profile menu"
-          >
-            <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-700 border border-orange-200 flex items-center justify-center font-bold text-xs shrink-0">
-              AD
-            </div>
-            <div className="hidden sm:flex flex-col">
-              <span className="text-xs font-semibold text-slate-900 leading-tight">
-                Sales Admin
-              </span>
-              <span className="text-[10px] text-slate-600 font-medium">
-                Admin Console
-              </span>
-            </div>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-600 hidden sm:block" />
-          </button>
-
-          {/* Profile Dropdown */}
-          {showProfileMenu && (
-            <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-50 text-xs">
-              <div className="px-3 py-2 border-b border-slate-100">
-                <p className="font-semibold text-slate-900">Sales Admin</p>
-                <p className="text-[11px] text-slate-600">admin@paytm-sales.local</p>
-              </div>
-              <div className="py-1">
-                <div className="px-3 py-1.5 text-slate-600 flex items-center gap-2">
-                  <ShieldCheck className="w-3.5 h-3.5 text-orange-500" />
-                  <span>Role: Operations Admin</span>
-                </div>
-                <div className="px-3 py-1.5 text-slate-600 flex items-center gap-2">
-                  <User className="w-3.5 h-3.5 text-slate-600" />
-                  <span>Status: Active Session</span>
-                </div>
               </div>
             </div>
           )}

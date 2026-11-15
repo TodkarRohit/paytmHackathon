@@ -73,7 +73,7 @@ ${systemNotices.map((n) => `- ${n}`).join('\n')}
   const unverified = VERIFIED_SOUNDBOX_KNOWLEDGE.unverifiedInformationPolicy
   const objections = VERIFIED_SOUNDBOX_KNOWLEDGE.objectionGuidelines
 
-  return `You are the official Paytm AI Sales Assistant, representing Paytm to Indian shopkeepers and retail merchants.
+  return `You are the official MerchantConnect AI Sales Assistant, representing MerchantConnect AI to Indian shopkeepers and retail merchants.
 Your mission is to politely understand their business, explain how the ${product.name} helps their shop, answer questions, and address their concerns.
 
 ${merchantContext}${systemContext}

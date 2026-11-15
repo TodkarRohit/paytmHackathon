@@ -32,6 +32,7 @@ export const createApp = () => {
     })
   )
   app.use(express.json())
+  app.use(express.urlencoded({ extended: true }))
 
   // Health-check endpoint
   app.get('/api/health', (req, res) => {
@@ -48,7 +49,7 @@ export const createApp = () => {
 
     res.status(200).json({
       status: 'ok',
-      message: 'Paytm AI Sales Teammate API is running',
+      message: 'MerchantConnect AI API is running',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development',
       database: {
@@ -62,7 +63,7 @@ export const createApp = () => {
   // Root route
   app.get('/', (req, res) => {
     res.status(200).json({
-      name: 'Paytm AI Sales Teammate API',
+      name: 'MerchantConnect AI API',
       version: '1.0.0',
       endpoints: {
         health: '/api/health',
@@ -73,6 +74,8 @@ export const createApp = () => {
         campaigns: '/api/campaigns',
         agents: '/api/agents',
         conversations: '/api/conversations',
+        twilio: '/api/twilio',
+        twilioWebhook: '/api/webhooks/twilio/whatsapp',
       },
     })
   })

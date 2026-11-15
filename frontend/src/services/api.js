@@ -208,3 +208,29 @@ export const conversationAPI = {
   getAll: (params) => request(`/conversations${buildQueryString(params)}`),
   getById: (id) => request(`/conversations/${id}`),
 }
+
+// 8. CRM Outbound Pipeline APIs
+export const crmAPI = {
+  getLeads: (params) => request(`/crm/leads${buildQueryString(params)}`),
+  createLead: (data) => request('/crm/leads', { method: 'POST', body: data }),
+  updateLead: (id, data) => request(`/crm/leads/${id}`, { method: 'PATCH', body: data }),
+  deleteLead: (id) => request(`/crm/leads/${id}`, { method: 'DELETE' }),
+  dispatchAll: () => request('/crm/dispatch-all', { method: 'POST' }),
+  runCadence: () => request('/crm/run-cadence', { method: 'POST' }),
+  clear: () => request('/crm/clear', { method: 'POST' }),
+}
+
+// 9. AI Training Studio APIs
+export const aiTrainingAPI = {
+  getConfig: () => request('/ai-training'),
+  saveConfig: (data) => request('/ai-training', { method: 'POST', body: data }),
+  testChat: (data) => request('/ai-training/test-chat', { method: 'POST', body: data }),
+  reset: () => request('/ai-training/reset', { method: 'POST' }),
+}
+
+// 9. Twilio WhatsApp APIs
+export const twilioAPI = {
+  getStatus: () => request('/twilio/status'),
+  sendWhatsApp: (payload) => request('/twilio/send', { method: 'POST', body: payload }),
+  simulateIncoming: (payload) => request('/twilio/simulate-incoming', { method: 'POST', body: payload }),
+}
