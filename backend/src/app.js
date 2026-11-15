@@ -33,13 +33,9 @@ export const createApp = () => {
     })
   )
   app.use(express.json())
-<<<<<<< HEAD
   // Twilio sends form-encoded webhooks, Meta sends JSON.
   // Both are needed for /webhooks/whatsapp and /webhooks/whatsapp/twilio.
-  app.use(express.urlencoded({ extended: false }))
-=======
   app.use(express.urlencoded({ extended: true }))
->>>>>>> rohit-crm-backup
 
   // Health-check endpoint
   app.get('/api/health', (req, res) => {
