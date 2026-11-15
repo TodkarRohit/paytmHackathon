@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
+import mongoose from 'mongoose'
 import { connectDB } from './config/db.js'
 import { seedAdminUserIfMissing } from './controllers/authController.js'
 import { createApp } from './app.js'
@@ -14,9 +15,15 @@ const PORT = process.env.PORT || 5000
 
 // Connect to MongoDB Atlas and safely seed initial admin user if configured
 connectDB().then(() => {
-  seedAdminUserIfMissing().catch((err) => {
-    console.warn(`⚠️ Admin seed notice: ${err.message}`)
-  })
+  if (mongoose.connection.readyState === 1) {
+    seedAdminUserIfMissing().catch((err) => {
+      console.warn(`⚠️ Admin seed notice: ${err.message}`)
+    })
+  } else {
+    console.log('ℹ️ Running in offline/development mode without active MongoDB Atlas connection')
+  }
+}).catch((err) => {
+  console.warn(`⚠️ Database connection warning: ${err.message}`)
 })
 
 // Start server
