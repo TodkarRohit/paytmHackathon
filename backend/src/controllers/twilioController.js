@@ -120,7 +120,7 @@ export const handleIncomingWhatsApp = async (req, res, next) => {
           merchant: shopkeeper,
           history,
           message: trimmedBody,
-          modelName: 'gemini-2.5-flash',
+          modelName: 'gemini-3.8-flash',
         })
         aiResponseText = aiResult.reply || 'Namaste ji! Main MerchantConnect AI se bol raha hoon. Kya aapke store ke liye Soundbox demo arrange karein?'
       } catch (aiErr) {

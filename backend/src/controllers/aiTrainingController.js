@@ -183,7 +183,7 @@ INSTRUCTIONS:
         })
 
         const response = await client.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.8-flash',
           contents,
           config: {
             systemInstruction: systemPrompt,
@@ -196,7 +196,7 @@ INSTRUCTIONS:
         return res.status(200).json({
           status: 'success',
           reply,
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.8-flash',
         })
       } catch (geminiError) {
         // Fallback simulation based on trained playbook if Gemini API key not yet set in .env

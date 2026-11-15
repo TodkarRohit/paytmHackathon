@@ -239,14 +239,14 @@ export function formatConversationContents({ history = [], message }) {
  * @param {Object} params.merchant - Mongoose Shopkeeper document or plain object
  * @param {Array} params.history - Array of past message objects ({ sender: 'Shopkeeper'|'AI', text: string })
  * @param {string} params.message - Current user message
- * @param {string} [params.modelName='gemini-2.5-flash'] - Model name
+ * @param {string} [params.modelName='gemini-3.8-flash'] - Model name
  * @returns {Promise<{ reply: string, intent: string, sentiment: string }>}
  */
 export async function generateSalesResponse({
   merchant = null,
   history = [],
   message,
-  modelName = 'gemini-2.5-flash',
+  modelName = 'gemini-3.8-flash',
 }) {
   const { contents, systemNotices } = formatConversationContents({ history, message })
   const ai = getGenAIClient()
