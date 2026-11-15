@@ -126,7 +126,7 @@ export default function MessageBubble({
             ) : isAI ? (
               <span className="font-bold text-[11px] text-[#002e6e] flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-sky-600" />
-                Paytm AI Sales Teammate
+                MerchantConnect AI Assistant
               </span>
             ) : (
               <span className="font-bold text-[11px] text-amber-800 flex items-center gap-1">

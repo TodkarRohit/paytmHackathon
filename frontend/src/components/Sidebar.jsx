@@ -31,12 +31,12 @@ export default function Sidebar({
         <div>
           <div className="h-16 px-6 border-b border-slate-200/80 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold text-base shadow-xs">
-                ₹
+              <div className="w-9 h-9 rounded-lg bg-orange-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                MC
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-slate-900 text-sm tracking-tight flex items-center gap-1.5">
-                  Paytm AI Sales
+                  MerchantConnect AI
                   <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-semibold bg-orange-100 text-orange-700">
                     AI
                   </span>

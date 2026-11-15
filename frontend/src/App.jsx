@@ -7,7 +7,10 @@ import Campaigns from './pages/Campaigns'
 import Leads from './pages/Leads'
 import Agents from './pages/Agents'
 import Conversations from './pages/Conversations'
+import EnterpriseCRM from './pages/EnterpriseCRM'
+import AITrainingStudio from './pages/AITrainingStudio'
 import PlaceholderView from './pages/PlaceholderView'
+import TwilioWhatsAppModal from './components/TwilioWhatsAppModal'
 import { NAVIGATION_ITEMS } from './constants/navigation'
 import { healthAPI, dashboardAPI, leadAPI, campaignAPI, ensureAuthenticatedSession } from './services/api'
 
@@ -89,6 +92,8 @@ export default function App() {
 
   const pageTitles = {
     dashboard: 'Dashboard Overview',
+    crm: 'Merchant Directory & Live Outreach Pipeline',
+    'ai-training': 'AI Training Studio',
     shopkeepers: 'Shopkeeper Directory',
     campaigns: 'Sales Campaigns',
     leads: 'Lead Management',
@@ -99,6 +104,9 @@ export default function App() {
   }
 
   const pageDescriptions = {
+    crm: 'Enterprise Merchant CRM Pipeline & Outbound Directory for B2B lead management and autonomous agent interactions.',
+    'ai-training':
+      'Train and calibrate the MerchantConnect AI sales engine with your custom brand identity, product offerings, objection battlecards, and sales tone.',
     shopkeepers:
       'Manage registered Paytm merchants, storefront details, soundbox deployment status, and contact information.',
     campaigns:
@@ -132,6 +140,12 @@ export default function App() {
             backendHealth={backendHealth}
           />
         )
+
+      case 'crm':
+        return <EnterpriseCRM onRecordMutated={fetchDashboardData} />
+
+      case 'ai-training':
+        return <AITrainingStudio onRecordMutated={fetchDashboardData} />
 
       case 'shopkeepers':
         return <Shopkeepers onRecordMutated={fetchDashboardData} />

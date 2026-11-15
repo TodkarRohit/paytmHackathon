@@ -1,48 +1,92 @@
 /**
- * Twilio WhatsApp Service — Twilio WhatsApp Sandbox (demo) / WhatsApp API
- *
- * Twilio is different from Meta Cloud API in two ways:
- *  1. Webhook payload is form-encoded, not JSON:
- *     From=whatsapp:+919999988888, To=whatsapp:+14155238886,
- *     Body=<text>, MessageSid=SM..., NumMedia=0
- *  2. Replies can be sent two ways:
- *     a) TwiML in the webhook response: <Response><Message>...</Message></Response>
- *        — no API credentials needed for the reply itself, Twilio delivers it.
- *     b) Twilio Messages API: POST /2010-04-01/Accounts/{SID}/Messages.json
- *        with Basic Auth (AccountSid:AuthToken). Used when credentials are set.
- *
- * Env vars (see backend/.env.example):
- *  TWILIO_ACCOUNT_SID
- *  TWILIO_AUTH_TOKEN
- *  TWILIO_WHATSAPP_FROM  — e.g. whatsapp:+14155238886 (Sandbox number)
- *
- * The Twilio controller uses (a) by default and (b) when configured,
- * so the demo works with just a webhook URL, and production can use the API.
+ * Twilio WhatsApp Integration Service
+ * 
+ * Manages Twilio client initialization, outbound WhatsApp message delivery,
+ * phone number normalization, and TwiML response generation.
  */
+
+import twilio from 'twilio'
+
+let twilioClientInstance = null
 
 export function getTwilioConfig() {
   return {
     accountSid: (process.env.TWILIO_ACCOUNT_SID || '').trim(),
     authToken: (process.env.TWILIO_AUTH_TOKEN || '').trim(),
-    from: (process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886').trim(),
+    from: (process.env.TWILIO_WHATSAPP_FROM || process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886').trim(),
   }
 }
 
 export function isTwilioConfigured() {
   const { accountSid, authToken, from } = getTwilioConfig()
-  return Boolean(accountSid && authToken && from)
+  return Boolean(
+    accountSid &&
+    authToken &&
+    from &&
+    accountSid !== 'your_twilio_account_sid_here' &&
+    authToken !== 'your_twilio_auth_token_here'
+  )
 }
 
-/** Strip the "whatsapp:" prefix Twilio adds: "whatsapp:+919999988888" -> "+919999988888" */
+export function getTwilioClient() {
+  if (twilioClientInstance) {
+    return twilioClientInstance
+  }
+
+  const { accountSid, authToken } = getTwilioConfig()
+  if (isTwilioConfigured()) {
+    twilioClientInstance = twilio(accountSid, authToken)
+    return twilioClientInstance
+  }
+
+  return null
+}
+
+export function setTwilioClient(client) {
+  twilioClientInstance = client
+}
+
 export function stripWhatsAppPrefix(value = '') {
   return String(value || '').replace(/^whatsapp:/i, '').trim()
 }
 
-/**
- * Parse a Twilio WhatsApp webhook body (form-encoded, already parsed
- * by express.urlencoded into req.body).
- * Returns { from, text, messageId } or null when there is no text message.
- */
+export function normalizePhoneNumber(rawPhone) {
+  if (!rawPhone || typeof rawPhone !== 'string') {
+    return {
+      raw: '',
+      clean: '',
+      whatsapp: '',
+      last10: '',
+      e164: '',
+      searchQueries: [],
+    }
+  }
+
+  const clean = rawPhone.replace(/^whatsapp:/i, '').trim()
+  const digitsOnly = clean.replace(/\D/g, '')
+  const last10 = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly
+
+  let e164 = clean
+  if (!clean.startsWith('+')) {
+    e164 = digitsOnly.length === 10 ? `+91${digitsOnly}` : `+${digitsOnly}`
+  }
+
+  const whatsapp = `whatsapp:${e164}`
+
+  const searchQueries = Array.from(
+    new Set([clean, last10, `+91${last10}`, `91${last10}`, `0${last10}`].filter(Boolean))
+  )
+
+  return {
+    raw: rawPhone,
+    clean,
+    whatsapp,
+    last10,
+    e164,
+    searchQueries,
+  }
+}
+
 export function parseTwilioMessage(body = {}) {
   const fromRaw = stripWhatsAppPrefix(body.From || body.from || '')
   const text = String(body.Body || body.body || '').trim()
@@ -54,9 +98,8 @@ export function parseTwilioMessage(body = {}) {
   }
 }
 
-/** Escape text for safe inclusion in TwiML XML. */
 export function escapeXml(s = '') {
-  return String(s)
+  return String(s || '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -64,68 +107,96 @@ export function escapeXml(s = '') {
     .replace(/'/g, '&apos;')
 }
 
-export function twimlMessage(text) {
-  return `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escapeXml(text)}</Message></Response>`
+export function twimlMessage(text = '') {
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Message>${escapeXml(text)}</Message>\n</Response>`
 }
 
 export function twimlEmpty() {
-  return `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`
+  return '<?xml version="1.0" encoding="UTF-8"?><Response/>'
 }
 
-/**
- * Send a WhatsApp text via Twilio Messages API.
- * Returns { skipped: true } when not configured — the caller can
- * then fall back to TwiML in the webhook response instead.
- */
+export const buildTwiMLResponse = twimlMessage
+
+export async function sendWhatsAppMessage({ to, body, from }) {
+  if (!to || !body) {
+    throw new Error('Both "to" and "body" parameters are required to send a WhatsApp message.')
+  }
+
+  const normalizedTo = normalizePhoneNumber(to)
+  const defaultSender = process.env.TWILIO_WHATSAPP_NUMBER || process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886'
+  const sender = from
+    ? (from.startsWith('whatsapp:') ? from : `whatsapp:${from}`)
+    : (defaultSender.startsWith('whatsapp:') ? defaultSender : `whatsapp:${defaultSender}`)
+
+  const client = getTwilioClient()
+
+  if (!client) {
+    console.warn(`[Twilio Warning] Twilio credentials not configured. Simulating outbound WhatsApp message to ${normalizedTo.whatsapp}`)
+    return {
+      success: true,
+      simulated: true,
+      messageSid: `SM_SIMULATED_${Date.now()}`,
+      to: normalizedTo.whatsapp,
+      from: sender,
+      body,
+      status: 'simulated',
+      timestamp: new Date().toISOString(),
+    }
+  }
+
+  try {
+    const response = await client.messages.create({
+      from: sender,
+      to: normalizedTo.whatsapp,
+      body: body.trim(),
+    })
+
+    return {
+      success: true,
+      simulated: false,
+      messageSid: response.sid,
+      to: response.to,
+      from: response.from,
+      status: response.status,
+      dateCreated: response.dateCreated,
+    }
+  } catch (error) {
+    console.error(`[Twilio Error] Failed to send WhatsApp message to ${normalizedTo.whatsapp}:`, error.message)
+    throw error
+  }
+}
+
 export async function sendTwilioWhatsAppText({ to, text }) {
-  const cleanText = String(text || '').trim()
-  if (!cleanText) throw new Error('Twilio WhatsApp text is required')
+  return sendWhatsAppMessage({ to, body: text })
+}
 
-  const { accountSid, authToken, from } = getTwilioConfig()
-  if (!accountSid || !authToken || !from) {
-    console.warn('[twilio] Not configured — skipping API send. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM, or rely on TwiML reply.')
-    return { skipped: true, reason: 'not_configured' }
+export function getTwilioStatus() {
+  const sid = process.env.TWILIO_ACCOUNT_SID || ''
+  const isConfigured = isTwilioConfigured()
+  const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER || process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886'
+
+  return {
+    configured: isConfigured,
+    accountSidMasked: sid.length > 8 ? `${sid.slice(0, 4)}...${sid.slice(-4)}` : (sid ? '***' : null),
+    whatsappNumber,
+    webhookPath: '/api/webhooks/twilio/whatsapp',
+    sandboxJoinInstructions: 'To test via Twilio Sandbox, send "join <sandbox-code>" to +1 415 523 8886 on WhatsApp.',
   }
-
-  const toNumber = stripWhatsAppPrefix(to)
-  const toWa = toNumber.startsWith('whatsapp:') ? toNumber : `whatsapp:${toNumber.startsWith('+') ? toNumber : `+${toNumber}`}`
-  const fromWa = from.startsWith('whatsapp:') ? from : `whatsapp:${from}`
-
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
-  const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64')
-
-  const params = new URLSearchParams()
-  params.append('From', fromWa)
-  params.append('To', toWa)
-  params.append('Body', cleanText.slice(0, 1600))
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: params,
-  })
-
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    const msg = data?.message || `Twilio send failed with HTTP ${res.status}`
-    const err = new Error(msg)
-    err.status = res.status
-    err.code = data?.code
-    throw err
-  }
-  return { skipped: false, messageSid: data?.sid || null, raw: data }
 }
 
 export default {
   getTwilioConfig,
   isTwilioConfigured,
+  getTwilioClient,
+  setTwilioClient,
   stripWhatsAppPrefix,
+  normalizePhoneNumber,
   parseTwilioMessage,
   escapeXml,
   twimlMessage,
   twimlEmpty,
+  buildTwiMLResponse,
+  sendWhatsAppMessage,
   sendTwilioWhatsAppText,
+  getTwilioStatus,
 }

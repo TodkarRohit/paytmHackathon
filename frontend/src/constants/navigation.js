@@ -1,5 +1,7 @@
 import {
   LayoutDashboard,
+  Building2,
+  GraduationCap,
   Store,
   Megaphone,
   Target,
@@ -11,6 +13,8 @@ import {
 
 export const NAVIGATION_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'crm', label: 'Outbound CRM', icon: Building2 },
+  { id: 'ai-training', label: 'AI Training Studio', icon: GraduationCap },
   { id: 'shopkeepers', label: 'Shopkeepers', icon: Store },
   { id: 'campaigns', label: 'Campaigns', icon: Megaphone },
   { id: 'leads', label: 'Leads', icon: Target },
