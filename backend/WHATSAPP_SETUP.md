@@ -8,12 +8,17 @@ the same AI reply, saved in the same `Conversation` in MongoDB.
 
 - `GET /webhooks/whatsapp` — Meta verification (`hub.mode` / `hub.verify_token` / `hub.challenge`)
 - `POST /webhooks/whatsapp` — incoming Meta Cloud API messages
-- `backend/src/services/whatsappService.js` — parse, phone normalisation,
+- `POST /webhooks/whatsapp/twilio` — incoming Twilio WhatsApp Sandbox messages (form-encoded)
+- `backend/src/services/whatsappService.js` — Meta parse, phone normalisation,
   Shopkeeper lookup by phone, send via Graph API (`graph.facebook.com/v21.0/<phone-number-id>/messages`)
-- `backend/src/controllers/whatsappController.js` — opt-in check, find/create
-  Active WhatsApp `Conversation`, reuse `generateSalesResponse`, save both
-  messages, send reply back
-- No JWT on the webhook — Meta calls it directly. Do not put it behind `/api` auth.
+- `backend/src/services/twilioService.js` — Twilio parse (`From` / `Body` / `MessageSid`),
+  TwiML replies, send via Twilio Messages API when configured
+- `backend/src/services/whatsappChatService.js` — shared chat core used by
+  both providers: opt-in check, find/create Active WhatsApp `Conversation`,
+  reuse `generateSalesResponse`, save both messages
+- `backend/src/controllers/whatsappController.js` — Meta webhook
+- `backend/src/controllers/twilioController.js` — Twilio webhook
+- No JWT on the webhooks — Meta / Twilio call them directly. Do not put them behind `/api` auth.
 
 Rules enforced in code:
 - Unknown phone number -> ignored, no unsolicited AI reply.
@@ -107,11 +112,44 @@ verification, and that send is safely skipped when not configured.
 - **Meta says webhook not responding:** your public URL must return 200
   fast. Check `curl https://<domain>/api/health` and ngrok is running.
 
-## Twilio Sandbox (alternative for a quick demo)
+## Twilio Sandbox — fastest demo (no Meta Business setup)
 
-If you don't want Meta Business setup for the demo, Twilio WhatsApp
-Sandbox is faster: create a Twilio account, join the sandbox with a
-code from your phone, and point Twilio's webhook to the same
-`/webhooks/whatsapp` URL. Note: Twilio sends form-encoded payloads,
-not Meta JSON — you would need a small Twilio parser/sender alongside
-this Meta one. The AI + Conversation logic can be reused as-is.
+Use this for the hackathon demo. No Twilio keys are needed in `.env`
+for the basic demo — replies are returned as TwiML in the webhook
+response and Twilio delivers them.
+
+1. Make a free Twilio account at https://www.twilio.com/try-twilio
+2. In Twilio Console: Messaging > Try it out > Send a WhatsApp message.
+   Note the Sandbox number `+1 415 523 8886` and your join code, e.g. `join happy-cat`.
+3. On your phone, WhatsApp `+1 415 523 8886` and send the join code.
+4. Make the backend public (see step 3 above, ngrok):
+   ```bash
+   ngrok http 5000
+   ```
+5. In Twilio, set **When a message comes in** to:
+   ```
+   https://<your-ngrok-domain>/webhooks/whatsapp/twilio
+   ```
+   Method: POST. Save.
+6. Make sure the test shopkeeper exists in the app with:
+   - `phoneNumber` = your test WhatsApp number (e.g. `+91 99999 88888`)
+   - `whatsappOptIn: true`
+7. From that phone, WhatsApp the Sandbox number, e.g.:
+   `Namaste, Soundbox ka price kya hai?`
+   Expected: AI reply in WhatsApp, and the same conversation in the
+   dashboard under Conversations, channel `WhatsApp`.
+
+Optional — send via Twilio Messages API instead of TwiML:
+in `backend/.env`, set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
+`TWILIO_WHATSAPP_FROM=whatsapp:+14155238886`, restart, and the
+controller will send via the API and return an empty TwiML response.
+Without those keys, it replies via TwiML automatically — no duplicate.
+
+Quick local test without Twilio (no DB / no Gemini needed):
+
+```bash
+cd backend
+node src/scripts/test_twilio_webhook.js
+node src/scripts/test_whatsapp_webhook.js
+```
+

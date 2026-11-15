@@ -3,6 +3,7 @@ import {
   verifyWhatsAppWebhook,
   receiveWhatsAppWebhook,
 } from '../controllers/whatsappController.js'
+import { receiveTwilioWebhook } from '../controllers/twilioController.js'
 
 const router = express.Router()
 
@@ -10,5 +11,9 @@ const router = express.Router()
 // POST is called by Meta's servers with the webhook payload.
 router.get('/', verifyWhatsAppWebhook)
 router.post('/', receiveWhatsAppWebhook)
+
+// Twilio Sandbox: POST /webhooks/whatsapp/twilio
+// Twilio sends form-encoded bodies (express.urlencoded in app.js).
+router.post('/twilio', receiveTwilioWebhook)
 
 export default router

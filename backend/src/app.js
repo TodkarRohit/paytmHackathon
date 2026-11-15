@@ -33,6 +33,9 @@ export const createApp = () => {
     })
   )
   app.use(express.json())
+  // Twilio sends form-encoded webhooks, Meta sends JSON.
+  // Both are needed for /webhooks/whatsapp and /webhooks/whatsapp/twilio.
+  app.use(express.urlencoded({ extended: false }))
 
   // Health-check endpoint
   app.get('/api/health', (req, res) => {
@@ -75,12 +78,14 @@ export const createApp = () => {
         agents: '/api/agents',
         conversations: '/api/conversations',
         whatsappWebhook: '/webhooks/whatsapp',
+        whatsappTwilioWebhook: '/webhooks/whatsapp/twilio',
       },
     })
   })
 
-  // WhatsApp webhook — mounted BEFORE /api, no JWT auth.
+  // WhatsApp webhooks — mounted BEFORE /api, no JWT auth.
   // Meta calls GET for verification and POST for incoming messages.
+  // Twilio Sandbox calls POST /webhooks/whatsapp/twilio (form-encoded).
   app.use('/webhooks/whatsapp', whatsappRoutes)
 
   // Mount API Router
